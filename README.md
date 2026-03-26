@@ -4,7 +4,7 @@
 
 When you finish, add your names and a demo video link here, then submit one link to your project repository.
 
-**Group Members:** (list all group members here)
+**Group Members:** Sam and Henry
 * [Demo Video (1 per group)](http://includeyourlinkhere)
 
 In this project, you will design and build an app of your own choosing in Python using Flask, with a focus on secure authentication and protecting user content. The project is broken into four major phases, each teaching key skills for building a functional and secure application. At the end, you and your classmates will playtest each other’s apps, with the goal of exposing security weaknesses.
