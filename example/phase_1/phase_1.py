@@ -4,7 +4,8 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"  # needed for sessions
 
 users = {
-    "alice": "password123"
+    "alice": "password123",
+    "bob": "qwerty"
 }
 
 base_style = """
