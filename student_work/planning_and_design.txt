@@ -4,32 +4,43 @@ APP PLANNING & DESIGN
 
 1. PROJECT NAME & THEME
 -------------------------
-- What is your app called, and what type of app is it?  
-- What style or vibe do you want users to experience?
-- What about your app will require a log-in structure?
+- What is your app called, and what type of app is it?  The red Aliance which is a website that shows 
+diffrent robotics teams data 
+- What style or vibe do you want users to experience? IDK for right now 
+- What about your app will require a log-in structure? You will need to log in to each teams 
+profile using your user name and the team number to see there spicific team data 
 
 2. CORE FUNCTIONALITY
 -------------------------
-- What are the essential features your app must have?  
-- What optional features could make your app more interactive or personalized?
+- What are the essential features your app must have? a log in screen, and multiple diffrent 
+teams with diffrent data for each team 
+- What optional features could make your app more interactive or personalized? We might in the
+future make a menu to show all the diffent teams and let you log into each one 
 
 3. SECRET OR PERSONALIZED CONTENT
 
 -------------------------
-- What content will users see after logging in?  
+- What content will users see after logging in?  They will see the data of the spicific team
+they chose
 - Will this content change depending on who is using the app (admin, user, special user?)
+admins will be able to change the data and everyone else will just be looking at it 
 
 4. USER EXPERIENCE (UX) DESIGN
 -------------------------
-- How should your app look and feel?
-- How will users navigate between pages?
+- How should your app look and feel? it should feel simple and easy to navigate 
+- How will users navigate between pages? based of what they want to see they will be able to 
+select diffent tabs at the top of the page 
 
 5. SECURITY FEATURES
 -------------------------
-- What password and authentication rules will you enforce?  
+- What password and authentication rules will you enforce?  for now you will log into your teams 
+page with a username and your teams password
 - How will you protect secret pages from unauthorized access?
+if you dont have admin presmissions in your information then you wont be able to access those 
+pages 
 
 6. OPTIONAL CREATIVE ENHANCEMENTS
 -------------------------
-- What customization or fun features could users enjoy?
-- Are there interactive elements, like games, quizzes, or badges, you could include?
+- What customization or fun features could users enjoy? being able to set what teams they want to 
+view on there account 
+- Are there interactive elements, like games, quizzes, or badges, you could include? no
