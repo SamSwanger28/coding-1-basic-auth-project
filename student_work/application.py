@@ -4,7 +4,8 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"  # needed for sessions
 
 users = { "sam":{
-    "password"
+    "password":123,
+    "following_teams":[]
 }
 
 }
