@@ -3,10 +3,7 @@ app = Flask(__name__)
 
 app.secret_key = "supersecretkey"  # needed for sessions
 
-users = { "sam":{
-    "password":123,
-    "following_teams":[]
-}
+users = {
 
 }
 
@@ -97,8 +94,20 @@ secret_page = base_style + """
 
 
 user_profile_page = base_style + """
-<div class="card>
-<h1> You are following team users['following_teams']
+<div class="card">
+<h1> You are following team {{users[username]['following_teams'][0]}} </h1>
+<form method="POST" action="/follow">
+    <button type="submit"> add team </button>
+</div> 
+"""
+
+add_team_page = base_style + """
+<div class="card">
+<h1> add team </h1>
+<form method="POST" action="/follow">
+    <input name="number" placeholder="Team Number"><br>
+    <button type="submit"> add team </button>
+</div>
 """
 
 @app.route("/", methods=["GET", "POST"])
@@ -108,9 +117,9 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        if username in users and users[username] == password:
+        if username in users and users[username]["password"] == password:
             session["user"] = username
-            return redirect(url_for("secret"))
+            return redirect(url_for("profile"))
         else:
             error = "Incorrect username or password"
 
@@ -128,7 +137,7 @@ def register():
         elif not username or not password:
             error = "Fields cannot be empty"
         else:
-            users[username] = password
+            users[username] = {"password": password, "following_teams": []}
             return redirect(url_for("login"))
 
     return render_template_string(register_page, error=error)
@@ -143,5 +152,20 @@ def secret():
 def logout():
     session.pop("user", None)
     return redirect(url_for("login"))
+
+@app.route("/profile")
+def profile():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template_string(user_profile_page, username=session["user"])
+
+@app.route("/follow", methods=["POST"])
+def follow():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    username = session["user"]
+    team_number = request.form.get("number", "3966")  # default to team 3966 if no number provided
+    users[username]["following_teams"].append(team_number)
+    return redirect(url_for("profile"))
 
 app.run(host="0.0.0.0", port=3966)
