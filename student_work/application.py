@@ -1,11 +1,28 @@
 from flask import Flask, request, redirect, url_for, render_template_string, session
+import sqlite3
+
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-app.secret_key = "supersecretkey"  # needed for sessions
+# ---------- DATABASE SETUP ----------
+def get_db():
+    conn = sqlite3.connect("users.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 
-users = {
+def init_db():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            password TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-}
+init_db()
+
 
 base_style = """
 <style>
@@ -95,9 +112,18 @@ secret_page = base_style + """
 
 user_profile_page = base_style + """
 <div class="card">
-<h1> You are following team {{users[username]['following_teams'][0]}} </h1>
-<form method="POST" action="/follow">
-    <button type="submit"> add team </button>
+<h2> You are following teams:</h2>
+{% if users[username]['following_teams'] %}
+<ul>
+{% for team in users[username]['following_teams'] %}
+<li>{{ team }}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>No teams followed yet.</p>
+{% endif %}
+<a href="/add_team">Add Team</a>
+<a href="/logout"><button>Logout</button></a>
 </div> 
 """
 
@@ -117,7 +143,14 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        if username in users and users[username]["password"] == password:
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE username=? AND password=?",
+            (username, password)
+        ).fetchone()
+        conn.close()
+
+        if user:
             session["user"] = username
             return redirect(url_for("profile"))
         else:
@@ -131,14 +164,21 @@ def register():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
-
-        if username in users:
-            error = "Username already exists"
-        elif not username or not password:
+        following_teams = []
+        if not username or not password:
             error = "Fields cannot be empty"
         else:
-            users[username] = {"password": password, "following_teams": []}
-            return redirect(url_for("login"))
+            try:
+                conn = get_db()
+                conn.execute(
+                    "INSERT INTO users (username, password) VALUES (?, ?)",
+                    (username, password, following_teams)
+                )
+                conn.commit()
+                conn.close()
+                return redirect(url_for("login"))
+            except sqlite3.IntegrityError:
+                error = "Username already exists"
 
     return render_template_string(register_page, error=error)
 
@@ -157,7 +197,13 @@ def logout():
 def profile():
     if "user" not in session:
         return redirect(url_for("login"))
-    return render_template_string(user_profile_page, username=session["user"])
+    return render_template_string(user_profile_page, username=session["user"], users=users)
+
+@app.route("/add_team")
+def add_team():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template_string(add_team_page)
 
 @app.route("/follow", methods=["POST"])
 def follow():
@@ -165,7 +211,13 @@ def follow():
         return redirect(url_for("login"))
     username = session["user"]
     team_number = request.form.get("number", "3966")  # default to team 3966 if no number provided
-    users[username]["following_teams"].append(team_number)
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET following_teams = following_teams || ? WHERE username = ?",
+        (team_number, username)
+    )
+    conn.commit()
+    conn.close()
     return redirect(url_for("profile"))
 
 app.run(host="0.0.0.0", port=3966)
