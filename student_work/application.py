@@ -15,7 +15,8 @@ def init_db():
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
-            password TEXT
+            password TEXT,
+            following_teams TEXT
         )
     """)
     conn.commit()
@@ -113,10 +114,10 @@ secret_page = base_style + """
 user_profile_page = base_style + """
 <div class="card">
 <h2> You are following teams:</h2>
-{% if users[username]['following_teams'] %}
+{% if following_teams %}
 <ul>
-{% for team in users[username]['following_teams'] %}
-<li>{{ team }}</li>
+{% for team in following_teams %}
+<a href="/team/{{ team }}"><li>Team {{ team }}</li></a>
 {% endfor %}
 </ul>
 {% else %}
@@ -127,12 +128,21 @@ user_profile_page = base_style + """
 </div> 
 """
 
+team_info_page = base_style + """
+<div class="card">
+<h1> Team {{ team_number }} Info </h1>
+<p>Team {{ team_number }} is a great team!</p>
+<a href="/profile"><button>Back to Profile</button></a>
+</div>
+"""
+
 add_team_page = base_style + """
 <div class="card">
-<h1> add team </h1>
+<h1> Add Team </h1>
 <form method="POST" action="/follow">
-    <input name="number" placeholder="Team Number"><br>
-    <button type="submit"> add team </button>
+    <input name="number" placeholder="eg. 254"><br>
+    <button type="submit"> Add Team </button>
+</form>
 </div>
 """
 
@@ -140,17 +150,17 @@ add_team_page = base_style + """
 def login():
     error = ""
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
 
         conn = get_db()
         user = conn.execute(
-            "SELECT * FROM users WHERE username=? AND password=?",
-            (username, password)
+            "SELECT * FROM users WHERE username=?",
+            (username,)
         ).fetchone()
         conn.close()
 
-        if user:
+        if user and user["password"] == password:
             session["user"] = username
             return redirect(url_for("profile"))
         else:
@@ -162,17 +172,16 @@ def login():
 def register():
     error = ""
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        following_teams = []
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
         if not username or not password:
             error = "Fields cannot be empty"
         else:
             try:
                 conn = get_db()
                 conn.execute(
-                    "INSERT INTO users (username, password) VALUES (?, ?)",
-                    (username, password, following_teams)
+                    "INSERT INTO users (username, password, following_teams) VALUES (?, ?, ?)",
+                    (username, password, "")
                 )
                 conn.commit()
                 conn.close()
@@ -197,7 +206,14 @@ def logout():
 def profile():
     if "user" not in session:
         return redirect(url_for("login"))
-    return render_template_string(user_profile_page, username=session["user"], users=users)
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE username=?",
+        (session["user"],)
+    ).fetchone()
+    conn.close()
+    following_teams = user["following_teams"].split(",") if user["following_teams"] else []
+    return render_template_string(user_profile_page, username=session["user"], following_teams=following_teams)
 
 @app.route("/add_team")
 def add_team():
@@ -210,14 +226,32 @@ def follow():
     if "user" not in session:
         return redirect(url_for("login"))
     username = session["user"]
-    team_number = request.form.get("number", "3966")  # default to team 3966 if no number provided
+    team_number = request.form.get("number", "").strip()
+    if not team_number:
+        return redirect(url_for("profile"))
+
     conn = get_db()
-    conn.execute(
-        "UPDATE users SET following_teams = following_teams || ? WHERE username = ?",
-        (team_number, username)
-    )
-    conn.commit()
+    user = conn.execute(
+        "SELECT following_teams FROM users WHERE username = ?",
+        (username,)
+    ).fetchone()
+    if user:
+        current = user["following_teams"] or ""
+        if current:
+            updated = f"{current},{team_number}"
+        else:
+            updated = team_number
+        conn.execute(
+            "UPDATE users SET following_teams = ? WHERE username = ?",
+            (updated, username)
+        )
+        conn.commit()
     conn.close()
     return redirect(url_for("profile"))
 
-app.run(host="0.0.0.0", port=3966)
+@app.route("/team/<team_number>")
+def team_info(team_number):
+    return render_template_string(team_info_page, team_number=team_number)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=3966)
