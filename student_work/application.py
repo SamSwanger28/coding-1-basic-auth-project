@@ -253,10 +253,10 @@ def register():
         if not username or not password:
             error = "Fields cannot be empty"
         else:
-            is_strong, message = check_password_strength(password,username)
-            if not is_strong:
-                error = message
-            else:
+            # is_strong, message = check_password_strength(password,username)
+            # if not is_strong:
+            #     error = message
+            # else:
                 try:
                     conn = get_db()
                     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -338,7 +338,6 @@ def team_info(team_number):
         except Exception:
             team = None
     return render_template_string(team_info_page, team_number=team_number, team=team)
-
 
 @ app.route("/remove_team", methods=["GET", "POST"])
 def remove_team():
