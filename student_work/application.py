@@ -190,8 +190,9 @@ team_info_page = base_style + """
 <div class="large-card">
 {% if team %}
 <h1> Team {{ team_number }}, {{ team['name'] }} Info </h1>
+<p> Rookie Year: {{ team['rookie_year'] }} </p>
 <p> Normal EPA: {{ team['norm_epa']['current'] }} </p>
-<p> Record: {{ team['record']['wins'] }} - {{ team['record']['losses'] }} </p>
+<p> Alltime Record: {{ team['record']['wins'] }} - {{ team['record']['losses'] }} </p>
 <p> Winrate: {{ team['record']['winrate'] }}% </p>
 {% else %}
 <p> Team not found. </p>
