@@ -1,5 +1,33 @@
 from flask import Flask, request, redirect, url_for, render_template_string, session
 import sqlite3
+import bcrypt
+import statbotics
+sb = statbotics.Statbotics()
+
+weak_passwords = [
+    "123456",
+    "admin",
+    "12345678",
+    "123456789",
+    "1234",
+    "12345",
+    "password",
+    "123",
+    "Aa123456",
+    "1234567890",
+    "1234567",
+    "123123",
+    "111111",
+    "Password",
+    "12345678910",
+    "000000",
+    "Admin123",
+    "********",
+    "user",
+    "qwerty"
+]
+
+list_of_special_characters = ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+", "-", "=", "[", "]", "{", "}", "|", "\\", ":", ";", "'", "\"", "<", ">", ",", ".", "?", "/"]
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
@@ -41,6 +69,14 @@ body {
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     width: 300px;
+    text-align: center;
+}
+.large-card {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    width: 500px;
     text-align: center;
 }
 input {
@@ -101,40 +137,48 @@ register_page = base_style + """
 </div>
 """
 
-secret_page = base_style + """
-<div class="card">
-<h2>🎉 Secret Room</h2>
-<h3>Welcome, {{ username }}!</h3>
-<p>You got into the secret room!</p>
-<a href="/logout"><button>Logout</button></a>
-</div>
-"""
-
-
 user_profile_page = base_style + """
 <div class="card">
 <h2> You are following teams:</h2>
 {% if following_teams %}
 <ul>
 {% for team in following_teams %}
-<a href="/team/{{ team }}"><li>Team {{ team }}</li></a>
+<a href="/team/{{ team }}"><p>Team {{ team }}</p></a>
 {% endfor %}
 </ul>
 {% else %}
 <p>No teams followed yet.</p>
 {% endif %}
-<a href="/add_team">Add Team</a>
+<a href="/add_team"><button>Add Team</button></a>
+<a href="/remove_team"><button>Remove Team</button></a>
 <a href="/logout"><button>Logout</button></a>
 </div> 
 """
 
 team_info_page = base_style + """
-<div class="card">
-<h1> Team {{ team_number }} Info </h1>
-<p>Team {{ team_number }} is a great team!</p>
+<div class="large-card">
+{% if team %}
+<h1> Team {{ team_number }}, {{ team['name'] }} Info </h1>
+<p> Normal EPA: {{ team['norm_epa']['current'] }} </p>
+<p> Record: {{ team['record']['wins'] }} - {{ team['record']['losses'] }} </p>
+<p> Winrate: {{ team['record']['winrate'] }}% </p>
+{% else %}
+<p> Team not found. </p>
+{% endif %}
 <a href="/profile"><button>Back to Profile</button></a>
 </div>
 """
+
+remove_team_page = base_style + """
+<div class="card">
+<h1> Remove Team </h1>
+<form method="POST" action="/remove_team">
+    <input name="number" placeholder="eg.254"><br>
+    <button type="submit"> Remove Team </button>
+</form>
+</div>
+"""
+
 
 add_team_page = base_style + """
 <div class="card">
@@ -160,7 +204,7 @@ def login():
         ).fetchone()
         conn.close()
 
-        if user and user["password"] == password:
+        if user and bcrypt.checkpw(password.encode('utf-8'), user["password"]):
             session["user"] = username
             return redirect(url_for("profile"))
         else:
@@ -177,25 +221,24 @@ def register():
         if not username or not password:
             error = "Fields cannot be empty"
         else:
-            try:
-                conn = get_db()
-                conn.execute(
-                    "INSERT INTO users (username, password, following_teams) VALUES (?, ?, ?)",
-                    (username, password, "")
+            is_strong, message = check_password_strength(password,username)
+            if not is_strong:
+                error = message
+            else:
+                try:
+                    conn = get_db()
+                    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+                    conn.execute(
+                        "INSERT INTO users (username, password, following_teams) VALUES (?, ?, ?)",
+                        (username, hashed_password, "")
                 )
-                conn.commit()
-                conn.close()
-                return redirect(url_for("login"))
-            except sqlite3.IntegrityError:
-                error = "Username already exists"
+                    conn.commit()
+                    conn.close()
+                    return redirect(url_for("login"))
+                except sqlite3.IntegrityError:
+                    error = "Username already exists"
 
     return render_template_string(register_page, error=error)
-
-@app.route("/secret")
-def secret():
-    if "user" not in session:
-        return redirect(url_for("login"))
-    return render_template_string(secret_page, username=session["user"])
 
 @app.route("/logout")
 def logout():
@@ -251,7 +294,89 @@ def follow():
 
 @app.route("/team/<team_number>")
 def team_info(team_number):
-    return render_template_string(team_info_page, team_number=team_number)
+    if "user" not in session:
+        return redirect(url_for("login"))
+    try:
+        team_number = int(team_number)
+    except ValueError:
+        team = None
+    else:
+        try:
+            team = sb.get_team(team_number)
+        except Exception:
+            team = None
+    return render_template_string(team_info_page, team_number=team_number, team=team)
+
+
+@ app.route("/remove_team", methods=["GET", "POST"])
+def remove_team():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    username = session["user"]
+    if request.method == "POST":
+        team_number = request.form.get("number", "").strip()
+        if not team_number:
+            return redirect(url_for("profile"))
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT following_teams FROM users WHERE username = ?",
+            (username,)
+        ).fetchone()
+        if user:
+            current = user["following_teams"] or ""
+            teams = current.split(",") if current else []
+            if team_number in teams:
+                teams.remove(team_number)
+                updated = ",".join(teams)
+                conn.execute(
+                    "UPDATE users SET following_teams = ? WHERE username = ?",
+                    (updated, username)
+                )
+                conn.commit()
+        conn.close()
+        return redirect(url_for("profile"))
+    else:
+        return render_template_string(remove_team_page)
+
+def check_special_characters(password):
+    for item in list_of_special_characters:
+        if item in password:
+            return True
+    return False
+
+def check_capital_letters(password):
+    for char in password:
+        if char.isupper():
+            return True
+    return False
+
+def check_numbers(password):
+    for char in password:
+        if char.isdigit():
+            return True
+    return False
+
+def check_weak_passwords(password):
+    for wpass in weak_passwords:
+        if wpass == password:
+            return True
+    return False
+
+def check_password_strength(password,username=None):
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if check_weak_passwords(password):
+        return False, "Password is too common. Please choose a stronger password."
+    if username and username.lower() in password.lower():
+        return False, "Password should not contain your username."
+    if not check_capital_letters(password):
+        return False, "Password must contain at least one capital letter."
+    if not check_numbers(password):
+        return False, "Password must contain at least one number."
+    if not check_special_characters(password):
+        return False, "Password must contain at least one special character."
+    return True, ""
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3966)
