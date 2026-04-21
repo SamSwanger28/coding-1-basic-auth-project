@@ -191,7 +191,8 @@ team_info_page = base_style + """
 {% if team %}
 <h1> Team {{ team_number }}, {{ team['name'] }} Info </h1>
 <p> Rookie Year: {{ team['rookie_year'] }} </p>
-<p> Normal EPA: {{ team['norm_epa']['current'] }} </p>
+<p> This Season's EPA: {{ team['norm_epa']['current'] }} </p>
+<p> Max EPA: {{ team['norm_epa']['max'] }} </p>
 <p> Alltime Record: {{ team['record']['wins'] }} - {{ team['record']['losses'] }} </p>
 <p> Winrate: {{ team['record']['winrate'] }}% </p>
 {% else %}
@@ -411,3 +412,9 @@ def check_password_strength(password,username=None):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3966)
+# Rocket_City_2026 = sb.get_team_event(3966,'2026alhu')
+# print(Rocket_City_2026)
+# sta0ts = sb.get_team_matches(3966,None,'2026alhu')
+# print(sta0ts)
+# ayaus = sb.get_team_events(3966, 2026)
+# print(ayaus)
