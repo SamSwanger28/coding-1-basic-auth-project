@@ -216,22 +216,61 @@ team_info_page = base_style + """
 remove_team_page = base_style + """
 <div class="card">
 <h1> Remove Team </h1>
-<form method="POST" action="/remove_team">
+<form id="removeForm">
     <input name="number" placeholder="eg.254"><br>
     <button type="submit"> Remove Team </button>
 </form>
 </div>
+<script>
+document.getElementById('removeForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const number = formData.get('number');
+    fetch('/remove_team', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ number: number })
+    }).then(response => {
+        if (response.ok) {
+            window.location.href = '/profile';
+        } else {
+            alert('Error removing team');
+        }
+    });
+});
+</script>
 """
-
 
 add_team_page = base_style + """
 <div class="card">
 <h1> Add Team </h1>
-<form method="POST" action="/follow">
+<form id="addForm">
     <input name="number" placeholder="eg. 254"><br>
     <button type="submit"> Add Team </button>
 </form>
 </div>
+<script>
+document.getElementById('addForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const number = formData.get('number');
+    fetch('/follow', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ number: number })
+    }).then(response => {
+        if (response.ok) {
+            window.location.href = '/profile';
+        } else {
+            alert('Error adding team');
+        }
+    });
+});
+</script>
 """
 
 @app.route("/", methods=["GET", "POST"])
@@ -317,14 +356,14 @@ def add_team():
         return redirect(url_for("login"))
     return render_template_string(add_team_page)
 
-@app.route("/follow", methods=["POST"])
+@app.route("/follow", methods=["PUT"])
 def follow():
     if "user" not in session:
         return redirect(url_for("login"))
     username = session["user"]
     team_number = request.form.get("number", "").strip()
     if not team_number:
-        return redirect(url_for("profile"))
+        return "Invalid team number", 400
 
     conn = get_db("following.db")
     user = conn.execute(
@@ -343,7 +382,7 @@ def follow():
         )
         conn.commit()
     conn.close()
-    return redirect(url_for("profile"))
+    return "", 204
 
 @app.route("/team/<team_number>")
 def team_info(team_number):
@@ -360,15 +399,15 @@ def team_info(team_number):
             team = None
     return render_template_string(team_info_page, team_number=team_number, team=team)
 
-@ app.route("/remove_team", methods=["GET", "POST"])
+@ app.route("/remove_team", methods=["GET", "DELETE"])
 def remove_team():
     if "user" not in session:
         return redirect(url_for("login"))
     username = session["user"]
-    if request.method == "POST":
+    if request.method == "DELETE":
         team_number = request.form.get("number", "").strip()
         if not team_number:
-            return redirect(url_for("profile"))
+            return "Invalid team number", 400
 
         conn = get_db("following.db")
         user = conn.execute(
@@ -387,7 +426,7 @@ def remove_team():
                 )
                 conn.commit()
         conn.close()
-        return redirect(url_for("profile"))
+        return "", 204  
     else:
         return render_template_string(remove_team_page)
 
