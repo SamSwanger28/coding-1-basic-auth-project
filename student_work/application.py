@@ -94,7 +94,6 @@ def init_db():
 
 init_db()
 
-
 base_style = """
 <style>
 body {
@@ -191,6 +190,7 @@ user_profile_page = base_style + """
 {% else %}
 <p>No teams followed yet.</p>
 {% endif %}
+<a href="/matches"><button>View Matches</button></a>
 <a href="/add_team"><button>Add Team</button></a>
 <a href="/remove_team"><button>Remove Team</button></a>
 <a href="/logout"><button>Logout</button></a>
@@ -273,6 +273,20 @@ document.getElementById('addForm').addEventListener('submit', function(e) {
 </script>
 """
 
+get_event_page = base_style + """
+<div class="card">
+<h1> View Matches for Event </h1>
+<form method="POST" action="/view_matches">
+    <input name="event_code" placeholder="eg. 2026alhu"><br>
+    <input name="team_number" placeholder="eg. 254"><br>
+    <button type="submit">View Matches</button>
+</form>
+</div>
+"""
+
+matches_page = base_style + """
+<div class="large-card">
+"""
 @app.route("/", methods=["GET", "POST"])
 def login():
     error = ""
@@ -364,7 +378,6 @@ def follow():
     team_number = request.form.get("number", "").strip()
     if not team_number:
         return "Invalid team number", 400
-
     conn = get_db("following.db")
     user = conn.execute(
         "SELECT following_teams FROM following WHERE username = ?",
@@ -372,15 +385,17 @@ def follow():
     ).fetchone()
     if user:
         current = user["following_teams"] or ""
-        if current:
-            updated = f"{current},{team_number}"
-        else:
-            updated = team_number
-        conn.execute(
-            "UPDATE following SET following_teams = ? WHERE username = ?",
-            (updated, username)
-        )
-        conn.commit()
+        teams = current.split(",") if current else []
+        if team_number not in teams:
+            if current:
+                updated = f"{current},{team_number}"
+            else:
+                updated = team_number
+            conn.execute(
+                "UPDATE following SET following_teams = ? WHERE username = ?",
+                (updated, username)
+            )
+            conn.commit()
     conn.close()
     return "", 204
 
@@ -398,6 +413,27 @@ def team_info(team_number):
         except Exception:
             team = None
     return render_template_string(team_info_page, team_number=team_number, team=team)
+
+@app.route("/matches", methods=["GET"])
+def matches():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template_string(get_event_page)
+
+@app.route("/view_matches", methods=["POST"])
+def view_matches():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    event_code = request.form.get("event_code", "").strip()
+    team_number = request.form.get("team_number", "").strip()
+    if not event_code or not team_number:
+        return "Invalid input", 400
+    try:
+        team_number = int(team_number)
+        matches = sb.get_team_matches(team_number, None, event_code)
+    except Exception:
+        matches = None
+    return render_template_string(matches_page, matches=matches)
 
 @ app.route("/remove_team", methods=["GET", "DELETE"])
 def remove_team():
@@ -469,11 +505,11 @@ def check_password_strength(password,username=None):
         return False, "Password must contain at least one special character."
     return True, ""
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3966)
+# if __name__ == "__main__":
+#     app.run(host="0.0.0.0", port=3966)
 # Rocket_City_2026 = sb.get_team_event(3966,'2026alhu')
 # print(Rocket_City_2026)
-# sta0ts = sb.get_team_matches(3966,None,'2026alhu')
-# print(sta0ts)
+sta0ts = sb.get_team_matches(3966,None,'2026alhu')
+print(sta0ts)
 # ayaus = sb.get_team_events(3966, 2026)
 # print(ayaus)
