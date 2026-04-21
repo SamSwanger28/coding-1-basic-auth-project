@@ -64,22 +64,33 @@ app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 # ---------- DATABASE SETUP ----------
-def get_db():
-    conn = sqlite3.connect("users.db")
+def get_db(requested):
+    conn = sqlite3.connect(requested)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    conn = get_db()
-    conn.execute("""
+    # Auth database
+    conn_auth = get_db("auth.db")
+    conn_auth.execute("""
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
-            password TEXT,
+            password TEXT
+        )
+    """)
+    conn_auth.commit()
+    conn_auth.close()
+
+    # Following database
+    conn_follow = get_db("following.db")
+    conn_follow.execute("""
+        CREATE TABLE IF NOT EXISTS following (
+            username TEXT PRIMARY KEY,
             following_teams TEXT
         )
     """)
-    conn.commit()
-    conn.close()
+    conn_follow.commit()
+    conn_follow.close()
 
 init_db()
 
@@ -230,7 +241,7 @@ def login():
         username = request.form.get("username", "")
         password = request.form.get("password", "")
 
-        conn = get_db()
+        conn = get_db("auth.db")
         user = conn.execute(
             "SELECT * FROM users WHERE username=?",
             (username,)
@@ -259,14 +270,23 @@ def register():
             #     error = message
             # else:
                 try:
-                    conn = get_db()
                     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-                    conn.execute(
-                        "INSERT INTO users (username, password, following_teams) VALUES (?, ?, ?)",
-                        (username, hashed_password, "")
-                )
-                    conn.commit()
-                    conn.close()
+                    # Insert into auth.db
+                    conn_auth = get_db("auth.db")
+                    conn_auth.execute(
+                        "INSERT INTO users (username, password) VALUES (?, ?)",
+                        (username, hashed_password)
+                    )
+                    conn_auth.commit()
+                    conn_auth.close()
+                    # Insert into following.db
+                    conn_follow = get_db("following.db")
+                    conn_follow.execute(
+                        "INSERT INTO following (username, following_teams) VALUES (?, ?)",
+                        (username, "")
+                    )
+                    conn_follow.commit()
+                    conn_follow.close()
                     return redirect(url_for("login"))
                 except sqlite3.IntegrityError:
                     error = "Username already exists"
@@ -282,13 +302,13 @@ def logout():
 def profile():
     if "user" not in session:
         return redirect(url_for("login"))
-    conn = get_db()
+    conn = get_db("following.db")
     user = conn.execute(
-        "SELECT * FROM users WHERE username=?",
+        "SELECT * FROM following WHERE username=?",
         (session["user"],)
     ).fetchone()
     conn.close()
-    following_teams = user["following_teams"].split(",") if user["following_teams"] else []
+    following_teams = user["following_teams"].split(",") if user and user["following_teams"] else []
     return render_template_string(user_profile_page, username=session["user"], following_teams=following_teams)
 
 @app.route("/add_team")
@@ -306,9 +326,9 @@ def follow():
     if not team_number:
         return redirect(url_for("profile"))
 
-    conn = get_db()
+    conn = get_db("following.db")
     user = conn.execute(
-        "SELECT following_teams FROM users WHERE username = ?",
+        "SELECT following_teams FROM following WHERE username = ?",
         (username,)
     ).fetchone()
     if user:
@@ -318,7 +338,7 @@ def follow():
         else:
             updated = team_number
         conn.execute(
-            "UPDATE users SET following_teams = ? WHERE username = ?",
+            "UPDATE following SET following_teams = ? WHERE username = ?",
             (updated, username)
         )
         conn.commit()
@@ -350,9 +370,9 @@ def remove_team():
         if not team_number:
             return redirect(url_for("profile"))
 
-        conn = get_db()
+        conn = get_db("following.db")
         user = conn.execute(
-            "SELECT following_teams FROM users WHERE username = ?",
+            "SELECT following_teams FROM following WHERE username = ?",
             (username,)
         ).fetchone()
         if user:
@@ -362,7 +382,7 @@ def remove_team():
                 teams.remove(team_number)
                 updated = ",".join(teams)
                 conn.execute(
-                    "UPDATE users SET following_teams = ? WHERE username = ?",
+                    "UPDATE following SET following_teams = ? WHERE username = ?",
                     (updated, username)
                 )
                 conn.commit()
