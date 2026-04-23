@@ -286,7 +286,21 @@ get_event_page = base_style + """
 
 matches_page = base_style + """
 <div class="large-card">
+{% if matches %}
+<ul>
+{% for match in matches %}
+<p>Match: {{match['match']}}</p>
+<p> Alliance: {{match['alliance']}}</p>
+<p> Winner: {{match['result']['winner']}} </p>
+<p> Blue Score: {{match['result']['blue_score']}} </p>
+<p> Red Score: {{match['result']['red_score']}} </p>
+{% endfor %}
+</ul>
+{% endif %}
+<a href="/profile"><button>Back to Profile</button></a>
+</div>
 """
+
 @app.route("/", methods=["GET", "POST"])
 def login():
     error = ""
@@ -318,10 +332,10 @@ def register():
         if not username or not password:
             error = "Fields cannot be empty"
         else:
-            # is_strong, message = check_password_strength(password,username)
-            # if not is_strong:
-            #     error = message
-            # else:
+            is_strong, message = check_password_strength(password,username)
+            if not is_strong:
+                error = message
+            else:
                 try:
                     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
                     # Insert into auth.db
@@ -430,7 +444,19 @@ def view_matches():
         return "Invalid input", 400
     try:
         team_number = int(team_number)
-        matches = sb.get_team_matches(team_number, None, event_code)
+        team_matches = sb.get_team_matches(team_number, None, event_code)
+        matches = []
+        for match in team_matches:
+            match_key = match['match']
+            try:
+                full_match = sb.get_match(match_key)
+                matches.append({
+                    'match': match_key,
+                    'alliance': match['alliance'],
+                    'result': full_match['result']
+                })
+            except Exception:
+                continue
     except Exception:
         matches = None
     return render_template_string(matches_page, matches=matches)
@@ -505,11 +531,13 @@ def check_password_strength(password,username=None):
         return False, "Password must contain at least one special character."
     return True, ""
 
-# if __name__ == "__main__":
-#     app.run(host="0.0.0.0", port=3966)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=3966)
 # Rocket_City_2026 = sb.get_team_event(3966,'2026alhu')
 # print(Rocket_City_2026)
-sta0ts = sb.get_team_matches(3966,None,'2026alhu')
-print(sta0ts)
+# sta0ts = sb.get_team_matches(3966,None,'2026alhu')
+# print(sta0ts)
 # ayaus = sb.get_team_events(3966, 2026)
 # print(ayaus)
+# match1 = sb.get_match("2026alhu_qm5")
+# print(match1)
